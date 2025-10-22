@@ -10,11 +10,10 @@ void setup() {
   Serial.begin(115200);
   Wire.begin(21, 22);                 // I2C-Pins für ESP32
   analogReadResolution(12);           // 12-Bit ADC-Auflösung
-  menu.begin();                       // Menü initialisieren
+  menu.begin(100);                       // Menü initialisieren
 }
 
 void loop() {
-  menu.update();                      // Eingaben und Logik aktualisieren
-  menu.draw();                        // Aktuelle Anzeige zeichnen
-  delay(10);                          // Zykluszeit
+  // Hauptloop bleibt leer, da Menü über Timer läuft 
 }
+ 

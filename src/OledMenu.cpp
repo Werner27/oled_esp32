@@ -4,14 +4,53 @@
 OledMenu::OledMenu(U8G2 *disp)
   : display(disp), mode(MENU_MAIN), cursorPos(0), lastPress(0), buttonHeld(false), t(0.0), graphIndex(0) {
   pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(ledPin, OUTPUT);
 }
 
-// Initialisierung des Displays und Startanzeige
-void OledMenu::begin() {
+void OledMenu::begin(uint32_t cycleTimeMs) {
   display->begin();
   drawSplash();
   drawMainMenu();
+
+    cycleTime = cycleTimeMs;
+
+    // Timer erstellen (FreeRTOS Software Timer)
+    menuTimer = xTimerCreate(
+        "MenuTimer",                     // Name
+        pdMS_TO_TICKS(cycleTime),        // Zeitraum
+        pdTRUE,                          // wiederkehrend
+        this,                            // Timer-ID = Instanzzeiger
+        [](TimerHandle_t xTimer) {        // Lambda-Callback
+            OledMenu *instance = (OledMenu *)pvTimerGetTimerID(xTimer);
+            if (instance) instance->handleTimer();
+        }
+    );
+
+    if (menuTimer != nullptr) {
+        xTimerStart(menuTimer, 0); // Timer starten
+    }
 }
+
+void OledMenu::setCycleTime(uint32_t cycleTimeMs) {
+    cycleTime = cycleTimeMs;
+    if (menuTimer != nullptr) {
+        xTimerChangePeriod(menuTimer, pdMS_TO_TICKS(cycleTime), 0);
+    }
+}
+
+void OledMenu::handleTimer() {
+    curStartTimer = millis();
+    if (millis() - lastBlinkTime >= blinkInterval) {
+        ledState = !ledState ;
+        digitalWrite(ledPin, ledState ? HIGH : LOW );
+        lastBlinkTime = millis();
+    } 
+    update();
+    draw();
+    unsigned long elapsed = millis() - curStartTimer;
+//    Serial.printf("StZ %lu ms, LZ %lu ms\n", startTime, elapsed);
+}
+
 
 // Splashscreen mit Copyright und Smile-Logo
 void OledMenu::drawSplash() {
