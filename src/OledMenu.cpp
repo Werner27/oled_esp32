@@ -4,13 +4,13 @@
 OledMenu::OledMenu(U8G2 *disp)
   : display(disp), mode(MENU_MAIN), cursorPos(0), lastPress(0), buttonHeld(false), t(0.0), graphIndex(0) {
   pinMode(BUTTON_PIN, INPUT_PULLUP);
-  pinMode(ledPin, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
 }
 
 void OledMenu::begin(uint32_t cycleTimeMs) {
   display->begin();
   drawSplash();
-  drawMainMenu();
+//  drawMainMenu();
 
     cycleTime = cycleTimeMs;
 
@@ -42,7 +42,7 @@ void OledMenu::handleTimer() {
     curStartTimer = millis();
     if (millis() - lastBlinkTime >= blinkInterval) {
         ledState = !ledState ;
-        digitalWrite(ledPin, ledState ? HIGH : LOW );
+        digitalWrite(LED_PIN, ledState ? HIGH : LOW );
         lastBlinkTime = millis();
     } 
     update();
@@ -78,7 +78,7 @@ void OledMenu::update() {
   }
 
   // Wenn Taste länger als 1 Sekunde gehalten wird
-  if (pressed && (millis() - lastPress > 1000) && !buttonHeld) {
+  if (pressed && (millis() - lastPress > 500) && !buttonHeld) {
     buttonHeld = true;
     handleLongPress();                     // Langer Tastendruck erkannt
   }
@@ -94,8 +94,13 @@ void OledMenu::update() {
 void OledMenu::handleShortPress() {
   if (mode == MENU_MAIN) {
     cursorPos++;
-    if (cursorPos > 2) cursorPos = 0;     // zyklisch durch die Menüpunkte
+    if (cursorPos >= MENU_MODE_COUNT-1) cursorPos = 0;     // zyklisch durch die Menüpunkte
     drawMainMenu();
+  }
+  else if (mode == MODE_PROPERTIES) {
+    cursorPos++;  
+    if (cursorPos >= PROP_MODE_COUNT) cursorPos = 0;     // zyklisch durch die Menüpunkte
+    drawProperties();
   } else {
     mode = MENU_MAIN;                     // Rückkehr ins Hauptmenü
     drawMainMenu();
@@ -108,7 +113,24 @@ void OledMenu::handleLongPress() {
     switch (cursorPos) {
       case 0: mode = MODE_MEASURE; break; // Messwerte anzeigen
       case 1: mode = MODE_GRAPH; break;   // Graph anzeigen
-      case 2: mode = MODE_INFO; break;    // Info-Text anzeigen
+      case 2: mode = MODE_PROPERTIES; cursorPos= 0; break;   // Eigenschaften anzeigen
+      case 3: mode = MODE_INFO; break;    // Info-Text anzeigen
+    }
+  }
+  else if (mode == MODE_PROPERTIES) {
+    switch (cursorPos) {
+      case 0: // Aktive Kanäle einstellen
+        numChannels++;
+        if (numChannels > ANALOG_CHANNELS) numChannels = 1;
+        break;
+      case 1: // Blinkfrequenz einstellen
+        blinkInterval += 200;
+        if (blinkInterval > 2000) blinkInterval = 200;
+        break;
+      case 2: // Zurück zum Hauptmenü
+        mode = MENU_MAIN;   // Rückkehr ins Hauptmenü
+        cursorPos = 0;
+        break;
     }
   }
   draw();
@@ -120,18 +142,21 @@ void OledMenu::draw() {
     case MENU_MAIN: drawMainMenu(); break;
     case MODE_MEASURE: drawMeasure(); break;
     case MODE_GRAPH: drawGraph(); break;
+    case MODE_PROPERTIES: drawProperties(); break;
     case MODE_INFO: drawInfo(); break;
   }
 }
 
 // Hauptmenüanzeige mit Cursor
 void OledMenu::drawMainMenu() {
+  const char *items[] = {"Messwert", "Graph", "Eigenschaften", "Info"};
+  int itemCount = sizeof(items) / sizeof(items[0]);
+
   display->clearBuffer();
   display->setFont(u8g2_font_6x12_tr);
   display->drawStr(20, 10, "== Hauptmenue ==");
 
-  const char *items[] = {"Messwert", "Graph", "Info"};
-  for (int i = 0; i < (sizeof(items) / sizeof(items[0])); i++) {
+  for (int i = 0; i < itemCount; i++) {
     if (i == cursorPos) display->drawStr(5, 25 + i * 12, ">"); // Cursor anzeigen
     display->setCursor(15, 25 + i * 12);
     display->print(items[i]);
@@ -145,7 +170,7 @@ void OledMenu::drawMeasure() {
   display->setFont(u8g2_font_6x12_tr);
   display->drawStr(5, 10, "== Messwerte ==");
   t += 0.1;
-  for (int ch = 0; ch < ANALOG_CHANNELS; ch++) {
+  for (int ch = 0; ch < numChannels; ch++) {
     float val = readAnalog(ch);            // aktuellen Messwert lesen
     display->setCursor(10, 25 + ch * 10);
     display->print("CH");
@@ -160,29 +185,78 @@ void OledMenu::drawMeasure() {
 void OledMenu::drawGraph() {
   // Neue Messwerte aufnehmen
   t += 0.1;
-  for (int ch = 0; ch < ANALOG_CHANNELS; ch++) {
+  for (int ch = 0; ch < numChannels; ch++) {
     float val = readAnalog(ch);
     values[ch][graphIndex] = map(val * 100, 0, 330, GRAPH_HEIGHT, 0);
   }
-  graphIndex = (graphIndex + 1) % 128; // zyklische Speicherung
-
+  
   // Darstellung vorbereiten
   display->clearBuffer();
-  display->setFont(u8g2_font_5x8_tr);
-  display->drawStr(0, 10, "Graph-Modus");
+  // display->setFont(u8g2_font_5x8_tr);
+  // display->drawStr(0, 10, "Graph-Modus");
+  display->setFont(u8g2_font_6x12_tr);
+//  display->setFont(u8g2_font_ncenB08_tr);
+
+  // Beispiel: Messwert des 1. Kanals simuliert als Sinus
+  //  float value = (sin(t) + 1.0) * 1.65; // Spannung zwischen 0–3.3V
+  float value = readAnalog(0);
+
+  char title[32];
+  snprintf(title, sizeof(title), "Graph-Modus  U=%.2fV", value);
+  display->drawStr(0, 10, title);
+
+  graphIndex = (graphIndex + 1) % 128; // zyklische Speicherung
 
   // Achsen zeichnen
   display->drawLine(0, GRAPH_OFFSET_Y + GRAPH_HEIGHT, 127, GRAPH_OFFSET_Y + GRAPH_HEIGHT);
   display->drawLine(0, GRAPH_OFFSET_Y, 0, GRAPH_OFFSET_Y + GRAPH_HEIGHT);
 
   // Linien zwischen aufeinanderfolgenden Punkten verbinden
-  for (int ch = 0; ch < ANALOG_CHANNELS; ch++) {
+  for (int ch = 0; ch < numChannels; ch++) {
     for (int i = 0; i < 127; i++) {
       int next = (i + graphIndex) % 128;
       int next2 = (next + 1) % 128;
       display->drawLine(i, GRAPH_OFFSET_Y + values[ch][next],
                         i + 1, GRAPH_OFFSET_Y + values[ch][next2]);
     }
+  }
+  display->sendBuffer();
+}
+// Anzeige der Eigenschaften (z.B. Anzahl der Kanäle)
+/*
+void OledMenu::drawProperties() {
+    display->clearBuffer();
+    display->setFont(u8g2_font_ncenB08_tr);
+    display->drawStr(0, 10, "== Eigenschaften ==");
+
+    char buf[24];
+    snprintf(buf, sizeof(buf), "Kanaele: %d", numChannels);
+    display->drawStr(0, 25, buf);
+    display->drawStr(0, 45, "Langdruck = +1 Kanal");
+    display->drawStr(0, 55, "Kurz = zurueck");
+
+    display->sendBuffer();
+}
+*/
+void OledMenu::drawProperties() {
+  const char *items[] = {"Kanäle:", "Blinkfrq:", "Zurück:"};
+  int itemCount = sizeof(items) / sizeof(items[0]);
+
+  display->clearBuffer();
+  display->setFont(u8g2_font_6x12_tr);
+  display->drawStr(20, 10, "== Eigenschaften ==");
+
+  for (int i = 0; i < itemCount; i++) {
+    if (i == cursorPos) display->drawStr(5, 25 + i * 12, ">"); // Cursor anzeigen
+    display->setCursor(15, 25 + i * 12);
+    display->print(items[i]); 
+    display->setCursor(80, 25 + i * 12);
+    if (i == 0) {
+      display->print(numChannels);
+    } else if (i == 1) {
+      display->print(blinkInterval);
+      display->print(" ms");
+    } 
   }
   display->sendBuffer();
 }

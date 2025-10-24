@@ -14,10 +14,15 @@ Ziel ist eine einfache Erweiterbarkeit, z. B. um eine Webkonfiguration (AsyncW
 
 ## 🧩 Funktionen
 
-- 🏠 **Hauptmenü mit drei Punkten:**
+- 🏠 **Hauptmenü mit vier Punkten:**
   - Messwertanzeige (digitale Anzeige)
   - Graphanzeige (Mehrkanal-Graph)
+  - Eigenschaften
   - Info-Seite mit Text
+- 🏠 **Eigenschaften mit drei Punkten:**
+  - Anzahl der aktiven Kanäle einstellen
+  - Blinkfrequenz für LED 
+  - Zurück zum Hauptmenü
 - 🔘 **Tastersteuerung (GPIO5):**
   - Kurzer Druck → Menüpunkt wechseln
   - Langer Druck → Menüpunkt aktivieren
@@ -65,7 +70,9 @@ OledMenu/
 - Navigiere mit dem Taster:
   - **Kurz drücken** → Nächster Menüpunkt
   - **Lang drücken** → Auswahl bestätigen
-- In den Modi *Messwert* oder *Graph* kannst du mit einem Druck zurück ins Menü wechseln.
+- In den Modi *Messwert* *Graph* oder *Info* kannst du mit einem Druck zurück ins Menü wechseln.
+- Im Modi Eigenschaften kannst du mit langen Druck die Anzahl der aktiven Kanäle, 
+  die Frequenz der Led  oder zurück ins Hauptmenü. Durch kurzen Tasterdruck wird Navigiert  
 
 ---
 

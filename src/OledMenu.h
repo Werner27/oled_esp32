@@ -3,9 +3,9 @@
 #include <U8g2lib.h>
 #include <math.h>
 
-#define LED_BUILTIN 2                // GPIO für eingebaute LED
+#define LED_PIN 18                   // GPIO für Blink-LED
 #define BUTTON_PIN 5                 // GPIO für Menütaster
-#define ANALOG_CHANNELS 1            // Anzahl der analogen Kanäle
+#define ANALOG_CHANNELS 4            // Anzahl der analogen Kanäle
 #define GRAPH_HEIGHT 40              // Höhe des Graphenbereichs
 #define GRAPH_OFFSET_Y 20            // Y-Versatz für Graphendarstellung
 
@@ -16,12 +16,22 @@ enum SignalType {
   SIGNAL_TRIANGLE
 };
 
+#define MENU_MODE_COUNT 5  // Anzahl der Menüpunkte
 // Zustände bzw. Modi des Menüs
 enum MenuMode {
-  MENU_MAIN,    // Hauptmenü
-  MODE_MEASURE, // Digitalanzeige der Messwerte
-  MODE_GRAPH,   // Graphanzeige
-  MODE_INFO     // Infotextanzeige
+  MENU_MAIN,        // Hauptmenü
+  MODE_MEASURE,     // Digitalanzeige der Messwerte
+  MODE_GRAPH,       // Graphanzeige
+  MODE_PROPERTIES,  // Eigenschaften
+  MODE_INFO         // Infotext
+};
+
+#define PROP_MODE_COUNT 3  // Anzahl der Menüpunkte
+// Zustände bzw. Modi des Menüs
+enum PropMode {
+  MODE_BLINK_FRQ,   // Blinkfrequenz einstellen
+  MODE_CHANNEL,     // Aktive Kanäle einstellen
+  MODE_BACK,        // Zurück zum Hauptmenü
 };
 
 class OledMenu {
@@ -35,27 +45,33 @@ public:
 private:
   static void onTimer(TimerHandle_t xTimer); // Timer-Callback
   void handleTimer(); // Wird vom Callback aufgerufen
+
+  // Led-Blinksteuerung
   unsigned long curStartTimer;       // Startzeitpunkt des Timers
-  int ledPin = 2;                    // Pin für die Blink-LED 
   unsigned long lastBlinkTime;       // Letzte Änderung der Blink-LED-Zeit
-  unsigned long blinkInterval = 500; // Blinkintervall in ms
+  unsigned long blinkInterval = 800; // Blinkintervall in ms
   bool ledState;                     // Aktueller Zustand der Blink-LED
+
   U8G2 *display;                     // Referenz auf das Displayobjekt
-  TimerHandle_t menuTimer; // FreeRTOS-Software-Timer
-  uint32_t cycleTime;      // Aktuelle Zykluszeit in ms
+  TimerHandle_t menuTimer;           // FreeRTOS-Software-Timer
+  uint32_t cycleTime;                // Aktuelle Zykluszeit in ms
+
   MenuMode mode;                     // Aktueller Modus
+  PropMode modeProp = MODE_CHANNEL;                 // Aktueller Eigenschaftenmodus
   int cursorPos;                     // Position des Cursors im Hauptmenü
   unsigned long lastPress;           // Zeitpunkt des letzten Tastendrucks
   bool buttonHeld;                   // Flag, ob Taste lange gedrückt wurde
-
   float t;                           // Zeitvariable für Signalberechnung
-  float values[ANALOG_CHANNELS][128];// Puffer für Graphdaten
   int graphIndex;                    // Index für Graphenaktualisierung
+
+  int numChannels = 1;                   // Neu: Anzahl der aktiven Kanäle
+  float values[ANALOG_CHANNELS][128];// Puffer für Graphdaten
 
   // Methoden zur Anzeige und Steuerung
   void drawMainMenu();
   void drawMeasure();
   void drawGraph();
+  void drawProperties(); 
   void drawInfo();
   void drawSplash();
 
